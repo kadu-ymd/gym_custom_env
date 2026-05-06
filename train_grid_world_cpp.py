@@ -32,10 +32,16 @@ elif sys.argv[1] in ['test', 'run']:
 
 # --- Hyperparameters ---
 mode = sys.argv[1]
-DIM = int(sys.argv[2]) # 5, 10, 20
-OBSTACLES = int(sys.argv[3]) # 3, 12, 48
-MAX_STEPS = int(sys.argv[4]) # 200, 500, 1000
-TOTAL_TIMESTEPS = int(sys.argv[5]) # 500_000
+DIM = int(sys.argv[2]) if len(sys.argv) >= 2 else 5 # 5, 10, 20
+OBSTACLES = int(sys.argv[3]) if len(sys.argv) >= 3 else 3 # 3, 12, 48
+MAX_STEPS = 200
+
+print(len(sys.argv))
+
+if len(sys.argv) > 4:
+    MAX_STEPS = int(sys.argv[4]) # 200, 500, 1000
+    TOTAL_TIMESTEPS = int(sys.argv[5]) # 500_000
+
 ENTROPY_COEF = 0.05
 # -----------------------
 
@@ -46,8 +52,6 @@ try:
     )
 except Exception:
     pass
-
-
 
 if mode == 'train':
     print("--- Starting CPP Training ---")
