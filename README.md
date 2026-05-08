@@ -183,3 +183,48 @@ O ambiente CPP possui renderização visual com as seguintes indicações:
 - **Branco**: células livres ainda não visitadas
 - **Texto no topo**: cobertura atual e número de passos
 
+## Evolução do CPP: Reward Shaping e Distance Shaping
+
+Para lidar com grids maiores (como 10x10 e 20x20) onde o agente original sofria de escassez de recompensas ("sparse rewards") e estagnação, novas versões do ambiente foram criadas implementando técnicas avançadas de modelagem de recompensas.
+
+Foram criados dois novos scripts de ambiente e treinamento:
+1. `grid_world_cpp_rshaping.py` / `train_grid_world_cpp_rshaping.py`: Implementa um FOV (Field of View) expandido de 5x5 e um bônus progressivo para incentivar a exploração.
+2. `grid_world_cpp_distance.py` / `train_grid_world_cpp_distance.py`: Introduz a técnica de **Potential-Based Distance Shaping**.
+
+### Potential-Based Distance Shaping
+
+Para incentivar a exploração em matrizes gigantes sem dar ao agente acesso global ao mapa, o ambiente `distance` calcula matematicamente a distância euclidiana da posição atual do agente até a célula não visitada mais próxima a cada passo.
+
+| Condição | Reward |
+|----------|--------|
+| Agente se aproxima da célula não visitada mais próxima | +0.1 |
+| Agente se afasta ou move-se paralelamente | -0.1 |
+| Visitar uma célula nova | +1.0 + (5.0 * coverage_ratio) |
+| Colidir com parede ou obstáculo | -0.2 |
+| **Cobertura completa** | +100.0 (bônus massivo) |
+| Máximo de passos atingido sem cobertura completa | -50.0 * (1.0 - coverage_ratio) |
+
+Esta abordagem cria uma "gravidade" matemática que guia o agente de forma eficiente em ambientes abertos sem causar *"reward hacking"*.
+
+### Espaço de Observação Expandido
+
+O espaço de observação foi mantido similar ao CPP original, mas a matriz de vizinhança (`neighbors`) foi ampliada para **5x5** (25 células), oferecendo maior consciência periférica para navegação local otimizada.
+
+### Como executar os novos ambientes
+
+A sintaxe de execução é idêntica ao CPP original, bastando utilizar os novos scripts.
+
+Para **treinar** um agente com o ambiente de Distance Shaping em um grid 20x20 com 48 obstáculos, máximo de 1000 passos por episódio e 1.000.000 de timesteps:
+```bash
+python train_grid_world_cpp_distance.py train 20 48 1000 1000000
+```
+
+Para **testar** o agente treinado em 100 episódios:
+```bash
+python train_grid_world_cpp_distance.py test 20 48
+```
+
+Para **visualizar** uma execução única com interface gráfica:
+```bash
+python train_grid_world_cpp_distance.py run 20 48
+```
