@@ -19,28 +19,32 @@ def print_action(action: int) -> str:
     }.get(action, "unknown")
 
 if sys.argv[1] not in ['train', 'test', 'run', 'curriculum']:
-    print("Usage: python train_grid_world_cpp_distance.py <train|test|run|curriculum> dim obstacles max_steps total_timesteps")
+    print("Usage: python train_grid_world_cpp_distance.py <train|test|run|curriculum> dim obstacles max_steps total_timesteps [fov_size]")
     sys.exit(1)
 elif sys.argv[1] in ['train','curriculum']:
-    if len(sys.argv) != 6:
-        print("Usage for training: python train_grid_world_cpp_distance.py train|curriculum dim obstacles max_steps total_timesteps")
+    if len(sys.argv) < 6:
+        print("Usage for training: python train_grid_world_cpp_distance.py train|curriculum dim obstacles max_steps total_timesteps [fov_size]")
         sys.exit(1)
 elif sys.argv[1] in ['test', 'run']:
-    if len(sys.argv) != 4:
-        print("Usage for testing/running: python train_grid_world_cpp_distance.py test|run dim obstacles")
+    if len(sys.argv) < 4:
+        print("Usage for testing/running: python train_grid_world_cpp_distance.py test|run dim obstacles [fov_size]")
         sys.exit(1)
 
 # --- Hyperparameters ---
 mode = sys.argv[1]
-DIM = int(sys.argv[2]) if len(sys.argv) >= 2 else 5 # 5, 10, 20
-OBSTACLES = int(sys.argv[3]) if len(sys.argv) >= 3 else 3 # 3, 12, 48
+DIM = int(sys.argv[2]) if len(sys.argv) >= 2 else 5
+OBSTACLES = int(sys.argv[3]) if len(sys.argv) >= 3 else 3
 MAX_STEPS = 200
+FOV_SIZE = 5
 
-print(len(sys.argv))
-
-if len(sys.argv) > 4:
-    MAX_STEPS = int(sys.argv[4]) # 200, 500, 1000
-    TOTAL_TIMESTEPS = int(sys.argv[5]) # 500_000
+if mode in ['train', 'curriculum']:
+    MAX_STEPS = int(sys.argv[4])
+    TOTAL_TIMESTEPS = int(sys.argv[5])
+    if len(sys.argv) >= 7:
+        FOV_SIZE = int(sys.argv[6])
+elif mode in ['test', 'run']:
+    if len(sys.argv) >= 5:
+        FOV_SIZE = int(sys.argv[4])
 
 ENTROPY_COEF = 0.05
 # -----------------------
@@ -60,11 +64,13 @@ if mode == 'train':
         size=DIM,
         obs_quantity=OBSTACLES,
         max_steps=MAX_STEPS,
+        fov_size=FOV_SIZE,
         render_mode="rgb_array"
     )
     check_env(env)
 
-    model = PPO("MultiInputPolicy", env, verbose=1, ent_coef=ENTROPY_COEF, device="cpu")
+    policy_kwargs = dict(net_arch=dict(pi=[256, 256], vf=[256, 256]))
+    model = PPO("MultiInputPolicy", env, verbose=1, ent_coef=ENTROPY_COEF, device="cpu", policy_kwargs=policy_kwargs)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = f'log/ppo_cpp_distance_{DIM}_{OBSTACLES}_{MAX_STEPS}_{ENTROPY_COEF}_{timestamp}'
@@ -91,6 +97,7 @@ elif mode == 'curriculum':
         size=DIM,
         obs_quantity=OBSTACLES,
         max_steps=MAX_STEPS,
+        fov_size=FOV_SIZE,
         render_mode="rgb_array"
     )
 
@@ -128,6 +135,7 @@ elif mode == 'run':
         size=DIM,
         obs_quantity=OBSTACLES,
         max_steps=MAX_STEPS,
+        fov_size=FOV_SIZE,
         render_mode="human"
     )
 
@@ -157,6 +165,7 @@ elif mode == 'test':
         size=DIM,
         obs_quantity=OBSTACLES,
         max_steps=MAX_STEPS,
+        fov_size=FOV_SIZE,
         render_mode="rgb_array"
     )
 

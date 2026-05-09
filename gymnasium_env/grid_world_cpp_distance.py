@@ -6,8 +6,9 @@ import pygame
 class GridWorldCPPDistanceEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size: int = 5, obs_quantity: int = 3, max_steps: int = 200):
+    def __init__(self, render_mode=None, size: int = 5, obs_quantity: int = 3, max_steps: int = 200, fov_size: int = 5):
         self.size = size
+        self.fov_size = fov_size
         self.window_size = 512
         self.obs_quantity = obs_quantity
         self.obstacles_locations = []
@@ -19,7 +20,7 @@ class GridWorldCPPDistanceEnv(gym.Env):
         self.all_free_cells_array = None
 
         self._agent_location = np.array([-1, -1], dtype=int)
-        self._neighbors = np.zeros((5, 5), dtype=int)
+        self._neighbors = np.zeros((self.fov_size, self.fov_size), dtype=int)
 
         self.observation_space = gym.spaces.Dict({
             "agent": gym.spaces.Box(
@@ -28,8 +29,8 @@ class GridWorldCPPDistanceEnv(gym.Env):
                 dtype=np.float32
             ),
             "neighbors": gym.spaces.Box(
-                low=np.zeros((5, 5), dtype=np.float32),
-                high=np.full((5, 5), 2.0, dtype=np.float32),
+                low=np.zeros((self.fov_size, self.fov_size), dtype=np.float32),
+                high=np.full((self.fov_size, self.fov_size), 2.0, dtype=np.float32),
                 dtype=np.float32
             ),
         })
@@ -76,11 +77,12 @@ class GridWorldCPPDistanceEnv(gym.Env):
         }
 
     def set_neighbors(self, obstacles_locations):
-        matrix = np.zeros((5, 5), dtype=int)
-        for i in range(5):
-            for j in range(5):
-                nx = self._agent_location[0] + (j - 2)
-                ny = self._agent_location[1] + (i - 2)
+        matrix = np.zeros((self.fov_size, self.fov_size), dtype=int)
+        offset = self.fov_size // 2
+        for i in range(self.fov_size):
+            for j in range(self.fov_size):
+                nx = self._agent_location[0] + (j - offset)
+                ny = self._agent_location[1] + (i - offset)
                 neighbor = np.array([nx, ny])
                 if not (0 <= nx < self.size and 0 <= ny < self.size):
                     matrix[i][j] = 1
