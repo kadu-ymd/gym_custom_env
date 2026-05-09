@@ -24,8 +24,8 @@ class GridWorldCPPDistanceEnv(gym.Env):
 
         self.observation_space = gym.spaces.Dict({
             "agent": gym.spaces.Box(
-                low=np.array([0.0, 0.0, 0.0], dtype=np.float32),
-                high=np.array([1.0, 1.0, 1.0], dtype=np.float32),
+                low=np.array([0.0, 0.0, 0.0, -1.0, -1.0], dtype=np.float32),
+                high=np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32),
                 dtype=np.float32
             ),
             "neighbors": gym.spaces.Box(
@@ -58,11 +58,14 @@ class GridWorldCPPDistanceEnv(gym.Env):
         return len(self.visited) / self.total_free_cells if self.total_free_cells > 0 else 1.0
 
     def _get_obs(self):
+        _, dx_norm, dy_norm = self._get_nearest_unvisited_info()
         return {
             "agent": np.array([
                 self._agent_location[0] / self.size,
                 self._agent_location[1] / self.size,
                 self.coverage_ratio,
+                dx_norm,
+                dy_norm
             ], dtype=np.float32),
             "neighbors": self._neighbors.astype(np.float32),
         }
@@ -92,18 +95,26 @@ class GridWorldCPPDistanceEnv(gym.Env):
                     matrix[i][j] = 2
         self._neighbors = matrix
 
-    def _get_min_distance_to_unvisited(self):
+    def _get_nearest_unvisited_info(self):
         if self.all_free_cells_array is None:
-            return 0.0
+            return 0.0, 0.0, 0.0
             
         unvisited = [cell for cell in self.all_free_cells_array if tuple(cell) not in self.visited]
         if not unvisited:
-            return 0.0
+            return 0.0, 0.0, 0.0
             
         unvisited_arr = np.array(unvisited)
-        # Vectorized Euclidean distance calculation
-        distances = np.linalg.norm(unvisited_arr - self._agent_location, axis=1)
-        return np.min(distances)
+        vectors = unvisited_arr - self._agent_location
+        distances = np.linalg.norm(vectors, axis=1)
+        
+        min_idx = np.argmin(distances)
+        min_dist = distances[min_idx]
+        
+        dx, dy = vectors[min_idx]
+        dx_norm = dx / self.size
+        dy_norm = dy / self.size
+        
+        return min_dist, dx_norm, dy_norm
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
@@ -132,7 +143,7 @@ class GridWorldCPPDistanceEnv(gym.Env):
         self.set_neighbors(self.obstacles_locations)
         
         # Initialize distance tracking
-        self.previous_min_distance = self._get_min_distance_to_unvisited()
+        self.previous_min_distance, _, _ = self._get_nearest_unvisited_info()
 
         observation = self._get_obs()
         info = self._get_info()
@@ -166,13 +177,13 @@ class GridWorldCPPDistanceEnv(gym.Env):
         if stayed_in_place:
             reward -= 0.2
 
-        current_min_distance = self._get_min_distance_to_unvisited()
+        current_min_distance, _, _ = self._get_nearest_unvisited_info()
 
-        # Potential-based distance shaping: +0.1 for moving closer, -0.1 for moving further/parallel
+        # Potential-based distance shaping: +0.1 for moving closer, 0.0 for moving further/parallel
         if current_min_distance < self.previous_min_distance:
             reward += 0.1
         else:
-            reward -= 0.1
+            reward += 0.0 # Removed the backward penalty to prevent the agent from getting psychologically trapped in local minima
             
         self.previous_min_distance = current_min_distance
 
